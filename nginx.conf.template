@@ -1,0 +1,70 @@
+user ice ice;
+pid /icebreaker/nginx/nginx.pid;
+
+events {
+  worker_connections 1024;
+}
+
+http {
+
+  # log_format upstream_debug '${DOLLAR}remote_addr - ${DOLLAR}remote_user [${DOLLAR}time_local] '
+  #                             '"${DOLLAR}request" ${DOLLAR}status ${DOLLAR}body_bytes_sent '
+  #                             '"${DOLLAR}http_referer" "${DOLLAR}http_user_agent" '
+  #                             'upstream: "${DOLLAR}upstream_addr" '
+  #                             'upstream_host: "${DOLLAR}proxy_host" '
+  #                             'upstream_http_host: "${DOLLAR}upstream_http_host" '
+  #                             'upstream_request: "${DOLLAR}proxy_host${DOLLAR}uri?${DOLLAR}args" '
+  #                             'upstream_response_time: "${DOLLAR}upstream_response_time" '
+  #                             'request_time: "${DOLLAR}request_time" '
+  #                             'full_uri: "${DOLLAR}scheme://${DOLLAR}host${DOLLAR}request_uri" '
+  #                             'headers: "${DOLLAR}snowflake_auth_header"';
+
+  # access_log            /icebreaker/nginx/access.log upstream_debug;
+  
+  access_log            /icebreaker/nginx/access.log;
+  client_body_temp_path /icebreaker/nginx/tmp/client_temp;
+  proxy_temp_path       /icebreaker/nginx/tmp/proxy_temp_path;
+  fastcgi_temp_path     /icebreaker/nginx/tmp/fastcgi_temp;
+  uwsgi_temp_path       /icebreaker/nginx/tmp/uwsgi_temp;
+  scgi_temp_path        /icebreaker/nginx/tmp/scgi_temp;
+  
+  server {
+
+    set ${DOLLAR}endpoint "${SNOWFLAKE_ENDPOINT}";
+
+    include /icebreaker/nginx/snowflake-auth-header.conf;
+
+    listen ${PORT};
+
+    location / {
+      resolver 1.1.1.1;
+      
+      proxy_pass                https://${DOLLAR}endpoint;
+
+      proxy_http_version        1.1;
+      proxy_read_timeout        30;
+      proxy_ssl_name            ${DOLLAR}endpoint;
+      proxy_ssl_server_name     on;
+      proxy_ssl_protocols       TLSv1.2;
+      proxy_ssl_session_reuse   off;
+
+      proxy_set_header          Host ${DOLLAR}endpoint;
+      proxy_set_header          X-Real-IP ${DOLLAR}remote_addr;
+      proxy_set_header          Authorization ${DOLLAR}snowflake_auth_header;
+      # proxy_set_header        X-Forwarded-For ${DOLLAR}proxy_add_x_forwarded_for;
+      # proxy_set_header        X-Forwarded-Proto ${DOLLAR}scheme;
+
+      proxy_set_header          Upgrade ${DOLLAR}http_upgrade;
+      proxy_set_header          Connection "keep-alive";
+
+      proxy_hide_header         Server;
+      proxy_hide_header         Access-Control-Allow-Origin;
+      proxy_ignore_headers      Cache-Control Expires;
+
+      add_header                Access-Control-Allow-Origin "*" always;
+
+      proxy_buffering on;
+      proxy_request_buffering off;
+    }
+  }
+}

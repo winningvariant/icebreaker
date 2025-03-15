@@ -1,0 +1,4 @@
+cryptography
+requests
+typing_extensions
+PyJWT
